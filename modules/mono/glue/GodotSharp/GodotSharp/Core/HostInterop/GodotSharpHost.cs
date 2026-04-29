@@ -27,7 +27,7 @@ public static unsafe class GodotSharpHost
         return ManagedCallbacks.Create();
     }
 
-    public static GodotObject GetOrCreateManagedObject(IntPtr unmanaged)
+    public static GodotObject? GetOrCreateManagedObject(IntPtr unmanaged)
         => InteropUtils.UnmanagedGetManaged(unmanaged);
 
     private static void ConfigureDllImportResolver(IntPtr godotDllHandle)

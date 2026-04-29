@@ -19,6 +19,9 @@ namespace Godot.NativeInterop
         {
             if (libraryName == "__Internal")
             {
+                if (_internalHandle != IntPtr.Zero)
+                    return _internalHandle;
+
                 if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
                     return Win32.GetModuleHandle(IntPtr.Zero);

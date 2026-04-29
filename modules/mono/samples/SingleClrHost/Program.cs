@@ -66,6 +66,7 @@ unsafe
             child.Name = "SingleClrHostChild";
             parent.AddChild(child);
             Console.WriteLine($"Created Godot nodes in host CLR: {parent.Name}/{parent.GetChild(0).Name}");
+            child.Free();
             parent.Free();
         }
 

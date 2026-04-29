@@ -59,13 +59,15 @@ unsafe
         Console.WriteLine($"Godot native version: {Marshal.PtrToStringAnsi(bindings.GodotVersion)}");
         Console.WriteLine($"Godot managed version: {Engine.GetVersionInfo()["string"]}");
 
-        Node parent = new();
-        Node child = new();
-        parent.Name = "SingleClrHostParent";
-        child.Name = "SingleClrHostChild";
-        parent.AddChild(child);
-        Console.WriteLine($"Created Godot nodes in host CLR: {parent.Name}/{parent.GetChild(0).Name}");
-        parent.Free();
+        {
+            Node parent = new();
+            Node child = new();
+            parent.Name = "SingleClrHostParent";
+            child.Name = "SingleClrHostChild";
+            parent.AddChild(child);
+            Console.WriteLine($"Created Godot nodes in host CLR: {parent.Name}/{parent.GetChild(0).Name}");
+            parent.Free();
+        }
 
         for (int i = 0; i < 5; i++)
             iterationInstance(godotInstance);

@@ -47,7 +47,7 @@ extern "C" {
 
 /**
  * @name libgodot_create_godot_instance
- * @since 4.7
+ * @since 4.6
  *
  * Creates a new Godot instance.
  *
@@ -85,7 +85,7 @@ LIBGODOT_API GDExtensionBool libgodot_iteration_godot_instance(GDExtensionObject
 
 /**
  * @name libgodot_stop_godot_instance
- * @since 4.6
+ * @since 4.7
  *
  * Stops an existing Godot instance.
  *

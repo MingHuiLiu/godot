@@ -80,7 +80,7 @@ The unmanaged callback table is owned by Godot and remains valid for the lifetim
 The sample host in `modules/mono/samples/SingleClrHost` demonstrates the minimal sequence:
 
 ```sh
-dotnet run --project modules/mono/samples/SingleClrHost -- <path-to-libgodot> --headless --quit-after 5
+dotnet run --project modules/mono/samples/SingleClrHost -- <path-to-libgodot> --headless --path <path-to-project> --quit-after 5
 ```
 
 To validate a local checkout from generated sources:
@@ -92,7 +92,7 @@ To validate a local checkout from generated sources:
    ./bin/godot.linuxbsd.editor.x86_64.mono --headless --editor --generate-mono-glue ./modules/mono/glue
    ```
 3. Build the managed assemblies: `./modules/mono/build_scripts/build_assemblies.py --godot-output-dir ./bin`.
-4. Build a LibGodot shared library with the Mono module enabled, for example `scons platform=linuxbsd target=template_debug tools=no module_mono_enabled=yes library_type=shared_library`.
+4. Build a LibGodot shared library with the Mono module enabled and path overrides available for the sample, for example `scons platform=linuxbsd target=template_debug tools=no module_mono_enabled=yes library_type=shared_library disable_path_overrides=no`.
 5. Build and run the sample host with the generated LibGodot path.
 
 The sample validates the first-stage acceptance loop by enabling host-driven mode before Godot initialization, checking binding versions and callback structure sizes, initializing GodotSharp from the existing CLR, calling `Engine.GetVersionInfo()`, creating parent/child `Node` instances, and stepping several frames.

@@ -66,11 +66,11 @@ unsafe
 
         godotInstanceObject.Call("stop");
     }
-finally
-{
-    destroyInstance(godotInstance);
-    NativeLibrary.Free(godotLibrary);
-}
+    finally
+    {
+        destroyInstance(godotInstance);
+        NativeLibrary.Free(godotLibrary);
+    }
 }
 
 return 0;

@@ -61,6 +61,24 @@ GDExtensionObjectPtr libgodot_create_godot_instance(int p_argc, char *p_argv[], 
 	}
 }
 
+GDExtensionBool libgodot_start_godot_instance(GDExtensionObjectPtr p_godot_instance) {
+	GodotInstance *godot_instance = (GodotInstance *)p_godot_instance;
+	ERR_FAIL_COND_V(instance != godot_instance, false);
+	return godot_instance->start();
+}
+
+GDExtensionBool libgodot_iteration_godot_instance(GDExtensionObjectPtr p_godot_instance) {
+	GodotInstance *godot_instance = (GodotInstance *)p_godot_instance;
+	ERR_FAIL_COND_V(instance != godot_instance, false);
+	return godot_instance->iteration();
+}
+
+void libgodot_stop_godot_instance(GDExtensionObjectPtr p_godot_instance) {
+	GodotInstance *godot_instance = (GodotInstance *)p_godot_instance;
+	ERR_FAIL_COND(instance != godot_instance);
+	godot_instance->stop();
+}
+
 void libgodot_destroy_godot_instance(GDExtensionObjectPtr p_godot_instance) {
 	GodotInstance *godot_instance = (GodotInstance *)p_godot_instance;
 	if (instance == godot_instance) {

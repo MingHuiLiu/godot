@@ -65,8 +65,9 @@ Initialization order:
 3. Create the Godot instance through the LibGodot API.
 4. Call `godotsharp_host_get_bindings(GodotSharpHost.BindingsVersion, ...)` and validate the returned structure size/version fields.
 5. Call `Godot.GodotSharpHost.Initialize(...)` with the unmanaged callback table returned by native code.
-6. Pass the returned `Godot.Bridge.ManagedCallbacks` table to `godotsharp_host_initialize(...)`.
-7. Start the Godot instance, use `Godot.*` APIs from the host CLR, and drive frames from one thread using the `GodotInstance` object.
+6. Start the Godot instance so Godot's high-level modules create their native singletons while engine-owned CLR startup remains suppressed.
+7. Pass the returned `Godot.Bridge.ManagedCallbacks` table to `godotsharp_host_initialize(...)`.
+8. Use `Godot.*` APIs from the host CLR, and drive frames from one thread using the `GodotInstance` object.
 
 Exported native entry points:
 
@@ -95,7 +96,7 @@ To validate a local checkout from generated sources:
 4. Build a LibGodot shared library with the Mono module enabled and path overrides available for the sample, for example `scons platform=linuxbsd target=template_debug tools=no module_mono_enabled=yes library_type=shared_library disable_path_overrides=no`.
 5. Build and run the sample host with the generated LibGodot path.
 
-The sample validates the first-stage acceptance loop by enabling host-driven mode before Godot initialization, checking binding versions and callback structure sizes, initializing GodotSharp from the existing CLR, calling `Engine.GetVersionInfo()`, creating parent/child `Node` instances, and stepping several frames.
+The sample validates the first-stage acceptance loop by enabling host-driven mode before Godot initialization, checking binding versions and callback structure sizes, starting the Godot instance through the LibGodot C API, initializing GodotSharp from the existing CLR, calling `Engine.GetVersionInfo()`, creating parent/child `Node` instances, and stepping several frames.
 
 Threading constraints for this first-stage mode are intentionally strict: call Godot APIs and drive `GodotInstance.iteration()` from the same thread that owns the Godot main loop. UI hosts should either marshal work onto that Godot thread or drive Godot ticks from the UI thread, but should not call arbitrary Godot APIs concurrently.
 

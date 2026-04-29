@@ -47,7 +47,7 @@ extern "C" {
 
 /**
  * @name libgodot_create_godot_instance
- * @since 4.6
+ * @since 4.7
  *
  * Creates a new Godot instance.
  *
@@ -58,6 +58,40 @@ extern "C" {
  * @return A pointer to created \ref GodotInstance GDExtension object or nullptr if there was an error.
  */
 LIBGODOT_API GDExtensionObjectPtr libgodot_create_godot_instance(int p_argc, char *p_argv[], GDExtensionInitializationFunction p_init_func);
+
+/**
+ * @name libgodot_start_godot_instance
+ * @since 4.7
+ *
+ * Starts an existing Godot instance.
+ *
+ * @param p_godot_instance The reference to the GodotInstance object to start.
+ *
+ * @return true if the Godot instance was started successfully.
+ */
+LIBGODOT_API GDExtensionBool libgodot_start_godot_instance(GDExtensionObjectPtr p_godot_instance);
+
+/**
+ * @name libgodot_iteration_godot_instance
+ * @since 4.7
+ *
+ * Runs one iteration for an existing Godot instance.
+ *
+ * @param p_godot_instance The reference to the GodotInstance object to iterate.
+ *
+ * @return true if the Godot instance should keep running.
+ */
+LIBGODOT_API GDExtensionBool libgodot_iteration_godot_instance(GDExtensionObjectPtr p_godot_instance);
+
+/**
+ * @name libgodot_stop_godot_instance
+ * @since 4.6
+ *
+ * Stops an existing Godot instance.
+ *
+ * @param p_godot_instance The reference to the GodotInstance object to stop.
+ */
+LIBGODOT_API void libgodot_stop_godot_instance(GDExtensionObjectPtr p_godot_instance);
 
 /**
  * @name libgodot_destroy_godot_instance

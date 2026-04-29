@@ -20,6 +20,9 @@ unsafe
     var getBindings = GetExport<godotsharp_host_get_bindings_fn>(godotLibrary, "godotsharp_host_get_bindings");
     var initializeHost = GetExport<godotsharp_host_initialize_fn>(godotLibrary, "godotsharp_host_initialize");
     var createInstance = GetExport<libgodot_create_godot_instance_fn>(godotLibrary, "libgodot_create_godot_instance");
+    var startInstance = GetExport<libgodot_start_godot_instance_fn>(godotLibrary, "libgodot_start_godot_instance");
+    var iterationInstance = GetExport<libgodot_iteration_godot_instance_fn>(godotLibrary, "libgodot_iteration_godot_instance");
+    var stopInstance = GetExport<libgodot_stop_godot_instance_fn>(godotLibrary, "libgodot_stop_godot_instance");
     var destroyInstance = GetExport<libgodot_destroy_godot_instance_fn>(godotLibrary, "libgodot_destroy_godot_instance");
 
     Check(setSingleClrEnabled(1), "enable host-driven single CLR mode");
@@ -45,26 +48,29 @@ unsafe
             bindings.UnmanagedCallbacks,
             bindings.UnmanagedCallbacksSize
         );
+        CheckSuccess(startInstance(godotInstance) != 0, "start Godot instance");
         Check(initializeHost(&managedCallbacks, sizeof(ManagedCallbacks)), "initialize GodotSharp from host CLR");
+
+        GodotObject godotInstanceObject = GodotSharpHost.GetOrCreateManagedObject(godotInstance)
+            ?? throw new InvalidOperationException("Unable to wrap GodotInstance.");
+        if (!(bool)godotInstanceObject.Call("is_started"))
+            throw new InvalidOperationException("GodotInstance is not started.");
 
         Console.WriteLine($"Godot native version: {Marshal.PtrToStringAnsi(bindings.GodotVersion)}");
         Console.WriteLine($"Godot managed version: {Engine.GetVersionInfo()["string"]}");
 
-        GodotObject godotInstanceObject = GodotSharpHost.GetOrCreateManagedObject(godotInstance)
-            ?? throw new InvalidOperationException("Unable to wrap GodotInstance.");
-        godotInstanceObject.Call("start");
-
-        using Node parent = new();
-        using Node child = new();
+        Node parent = new();
+        Node child = new();
         parent.Name = "SingleClrHostParent";
         child.Name = "SingleClrHostChild";
         parent.AddChild(child);
         Console.WriteLine($"Created Godot nodes in host CLR: {parent.Name}/{parent.GetChild(0).Name}");
+        parent.Free();
 
         for (int i = 0; i < 5; i++)
-            godotInstanceObject.Call("iteration");
+            iterationInstance(godotInstance);
 
-        godotInstanceObject.Call("stop");
+        stopInstance(godotInstance);
     }
     finally
     {
@@ -84,14 +90,30 @@ static void Check(int error, string operation)
         throw new InvalidOperationException($"Failed to {operation}: {(GodotSharpHostInteropError)error} ({error}).");
 }
 
+static void CheckSuccess(bool success, string operation)
+{
+    if (!success)
+        throw new InvalidOperationException($"Failed to {operation}.");
+}
+
 [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
 static unsafe byte ExtensionInitialize(IntPtr getProcAddress, IntPtr library, GodotExtensionInitialization* initialization)
 {
     initialization->MinimumInitializationLevel = 2;
     initialization->UserData = IntPtr.Zero;
-    initialization->Initialize = IntPtr.Zero;
-    initialization->Deinitialize = IntPtr.Zero;
+    initialization->Initialize = &ExtensionInitializeCallback;
+    initialization->Deinitialize = &ExtensionDeinitializeCallback;
     return 1;
+}
+
+[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+static void ExtensionInitializeCallback(IntPtr userData, int level)
+{
+}
+
+[UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
+static void ExtensionDeinitializeCallback(IntPtr userData, int level)
+{
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -119,12 +141,12 @@ enum GodotSharpHostInteropError
 }
 
 [StructLayout(LayoutKind.Sequential)]
-struct GodotExtensionInitialization
+unsafe struct GodotExtensionInitialization
 {
     public int MinimumInitializationLevel;
     public IntPtr UserData;
-    public IntPtr Initialize;
-    public IntPtr Deinitialize;
+    public delegate* unmanaged[Cdecl]<IntPtr, int, void> Initialize;
+    public delegate* unmanaged[Cdecl]<IntPtr, int, void> Deinitialize;
 }
 
 unsafe sealed class NativeArgv : IDisposable
@@ -163,6 +185,15 @@ unsafe delegate int godotsharp_host_initialize_fn(void* managedCallbacks, int ma
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 unsafe delegate IntPtr libgodot_create_godot_instance_fn(int argc, char** argv, delegate* unmanaged[Cdecl]<IntPtr, IntPtr, GodotExtensionInitialization*, byte> initFunc);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+delegate byte libgodot_start_godot_instance_fn(IntPtr instance);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+delegate byte libgodot_iteration_godot_instance_fn(IntPtr instance);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+delegate void libgodot_stop_godot_instance_fn(IntPtr instance);
 
 [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 delegate void libgodot_destroy_godot_instance_fn(IntPtr instance);

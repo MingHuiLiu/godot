@@ -66,12 +66,14 @@ unsafe
 
         godotInstanceObject.Call("stop");
     }
-    finally
-    {
-        destroyInstance(godotInstance);
-        NativeLibrary.Free(godotLibrary);
-    }
+finally
+{
+    destroyInstance(godotInstance);
+    NativeLibrary.Free(godotLibrary);
 }
+}
+
+return 0;
 
 static T GetExport<T>(IntPtr library, string name) where T : Delegate
     => Marshal.GetDelegateForFunctionPointer<T>(NativeLibrary.GetExport(library, name));

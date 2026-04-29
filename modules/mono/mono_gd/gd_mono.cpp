@@ -48,7 +48,6 @@
 
 #include "core/config/engine.h"
 #include "core/config/project_settings.h"
-#include "core/extension/libgodot.h"
 #include "core/io/dir_access.h"
 #include "core/io/file_access.h"
 #include "core/os/os.h"
@@ -57,6 +56,14 @@
 
 #ifdef UNIX_ENABLED
 #include <dlfcn.h>
+#endif
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+#define GODOTSHARP_HOST_API __declspec(dllexport)
+#elif defined(__GNUC__) || defined(__clang__)
+#define GODOTSHARP_HOST_API __attribute__((visibility("default")))
+#else
+#define GODOTSHARP_HOST_API
 #endif
 
 #ifndef TOOLS_ENABLED
@@ -777,16 +784,16 @@ struct GodotSharpHostBindings {
 
 static constexpr uint32_t GODOTSHARP_HOST_BINDINGS_VERSION = 1;
 
-LIBGODOT_API int32_t godotsharp_host_set_single_clr_enabled(int32_t p_enabled) {
+GODOTSHARP_HOST_API int32_t godotsharp_host_set_single_clr_enabled(int32_t p_enabled) {
 	GDMono::set_host_driven_runtime_enabled(p_enabled != 0);
 	return GODOTSHARP_HOST_INTEROP_OK;
 }
 
-LIBGODOT_API int32_t godotsharp_host_is_single_clr_enabled() {
+GODOTSHARP_HOST_API int32_t godotsharp_host_is_single_clr_enabled() {
 	return GDMono::is_host_driven_runtime_enabled() ? 1 : 0;
 }
 
-LIBGODOT_API int32_t godotsharp_host_get_bindings(uint32_t p_version, GodotSharpHostBindings *r_bindings) {
+GODOTSHARP_HOST_API int32_t godotsharp_host_get_bindings(uint32_t p_version, GodotSharpHostBindings *r_bindings) {
 	ERR_FAIL_NULL_V(r_bindings, GODOTSHARP_HOST_INTEROP_INVALID_ARGUMENT);
 
 	if (p_version != GODOTSHARP_HOST_BINDINGS_VERSION) {
@@ -819,7 +826,7 @@ LIBGODOT_API int32_t godotsharp_host_get_bindings(uint32_t p_version, GodotSharp
 	return GODOTSHARP_HOST_INTEROP_OK;
 }
 
-LIBGODOT_API int32_t godotsharp_host_initialize(const void *p_managed_callbacks, int32_t p_managed_callbacks_size) {
+GODOTSHARP_HOST_API int32_t godotsharp_host_initialize(const void *p_managed_callbacks, int32_t p_managed_callbacks_size) {
 	ERR_FAIL_NULL_V(p_managed_callbacks, GODOTSHARP_HOST_INTEROP_INVALID_ARGUMENT);
 
 	if (p_managed_callbacks_size != sizeof(GDMonoCache::ManagedCallbacks)) {

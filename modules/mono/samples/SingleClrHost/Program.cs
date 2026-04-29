@@ -33,6 +33,10 @@ unsafe
     {
         GodotSharpHostBindings bindings = default;
         Check(getBindings(GodotSharpHost.BindingsVersion, &bindings), "get GodotSharp bindings");
+        if (bindings.Version != GodotSharpHost.BindingsVersion)
+            throw new InvalidOperationException("GodotSharp host binding version mismatch.");
+        if (bindings.Size != (uint)sizeof(GodotSharpHostBindings))
+            throw new InvalidOperationException("GodotSharp host binding structure size mismatch.");
         if (bindings.ManagedCallbacksSize != GodotSharpHost.ManagedCallbacksSize)
             throw new InvalidOperationException("Managed callback size mismatch.");
 
@@ -50,9 +54,12 @@ unsafe
             ?? throw new InvalidOperationException("Unable to wrap GodotInstance.");
         godotInstanceObject.Call("start");
 
-        using Node node = new();
-        node.Name = "SingleClrHostNode";
-        Console.WriteLine($"Created Godot node in host CLR: {node.Name}");
+        using Node parent = new();
+        using Node child = new();
+        parent.Name = "SingleClrHostParent";
+        child.Name = "SingleClrHostChild";
+        parent.AddChild(child);
+        Console.WriteLine($"Created Godot nodes in host CLR: {parent.Name}/{parent.GetChild(0).Name}");
 
         for (int i = 0; i < 5; i++)
             godotInstanceObject.Call("iteration");
@@ -72,7 +79,7 @@ static T GetExport<T>(IntPtr library, string name) where T : Delegate
 static void Check(int error, string operation)
 {
     if (error != 0)
-        throw new InvalidOperationException($"Failed to {operation}: error {error}.");
+        throw new InvalidOperationException($"Failed to {operation}: {(GodotSharpHostInteropError)error} ({error}).");
 }
 
 [UnmanagedCallersOnly(CallConvs = [typeof(CallConvCdecl)])]
@@ -97,6 +104,16 @@ unsafe struct GodotSharpHostBindings
     public IntPtr GodotVersionHash;
     public ulong ApiCoreHash;
     public ulong ApiEditorHash;
+}
+
+enum GodotSharpHostInteropError
+{
+    Ok = 0,
+    InvalidArgument = 1,
+    VersionMismatch = 2,
+    NotReady = 3,
+    AlreadyInitialized = 4,
+    InitializationFailed = 5,
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -133,8 +150,17 @@ unsafe sealed class NativeArgv : IDisposable
     }
 }
 
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 unsafe delegate int godotsharp_host_set_single_clr_enabled_fn(int enabled);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 unsafe delegate int godotsharp_host_get_bindings_fn(uint version, GodotSharpHostBindings* bindings);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 unsafe delegate int godotsharp_host_initialize_fn(void* managedCallbacks, int managedCallbacksSize);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 unsafe delegate IntPtr libgodot_create_godot_instance_fn(int argc, char** argv, delegate* unmanaged[Cdecl]<IntPtr, IntPtr, GodotExtensionInitialization*, byte> initFunc);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
 delegate void libgodot_destroy_godot_instance_fn(IntPtr instance);

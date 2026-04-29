@@ -58,6 +58,10 @@ struct PluginCallbacks {
 
 } // namespace gdmono
 
+namespace GDMonoCache {
+struct ManagedCallbacks;
+}
+
 class GDMono {
 	bool initialized = false;
 	bool runtime_initialized = false;
@@ -91,6 +95,7 @@ class GDMono {
 
 protected:
 	static GDMono *singleton;
+	static bool host_driven_runtime_enabled;
 
 public:
 #ifdef DEBUG_ENABLED
@@ -115,6 +120,9 @@ public:
 	static GDMono *get_singleton() {
 		return singleton;
 	}
+
+	static void set_host_driven_runtime_enabled(bool p_enabled);
+	static bool is_host_driven_runtime_enabled();
 
 	_FORCE_INLINE_ bool is_initialized() const {
 		return initialized;
@@ -147,6 +155,7 @@ public:
 	bool should_initialize();
 
 	void initialize();
+	Error initialize_host_driven(const GDMonoCache::ManagedCallbacks &p_managed_callbacks);
 
 	GDMono();
 	~GDMono();

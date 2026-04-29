@@ -86,9 +86,13 @@ dotnet run --project modules/mono/samples/SingleClrHost -- <path-to-libgodot> --
 To validate a local checkout from generated sources:
 
 1. Install the native build dependencies for the target platform and make sure `scons` and a compatible .NET SDK are on `PATH`.
-2. Build a LibGodot binary with the Mono module enabled, for example `scons platform=linuxbsd target=template_debug tools=no module_mono_enabled=yes`.
-3. Generate the Mono glue with the built binary: `<godot_binary> --generate-mono-glue ./modules/mono/glue`.
-4. Build the managed assemblies: `./modules/mono/build_scripts/build_assemblies.py --godot-output-dir ./bin`.
+2. Build an editor binary with the Mono module enabled and use it to generate the Mono glue, for example:
+   ```sh
+   scons platform=linuxbsd target=editor module_mono_enabled=yes
+   ./bin/godot.linuxbsd.editor.x86_64.mono --headless --editor --generate-mono-glue ./modules/mono/glue
+   ```
+3. Build the managed assemblies: `./modules/mono/build_scripts/build_assemblies.py --godot-output-dir ./bin`.
+4. Build a LibGodot shared library with the Mono module enabled, for example `scons platform=linuxbsd target=template_debug tools=no module_mono_enabled=yes library_type=shared_library`.
 5. Build and run the sample host with the generated LibGodot path.
 
 The sample validates the first-stage acceptance loop by enabling host-driven mode before Godot initialization, checking binding versions and callback structure sizes, initializing GodotSharp from the existing CLR, calling `Engine.GetVersionInfo()`, creating parent/child `Node` instances, and stepping several frames.

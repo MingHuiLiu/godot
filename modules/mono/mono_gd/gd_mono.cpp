@@ -52,9 +52,18 @@
 #include "core/io/file_access.h"
 #include "core/os/os.h"
 #include "core/os/thread.h"
+#include "core/version.h"
 
 #ifdef UNIX_ENABLED
 #include <dlfcn.h>
+#endif
+
+#if defined(_MSC_VER) || defined(__MINGW32__)
+#define GODOTSHARP_HOST_API __declspec(dllexport)
+#elif defined(__GNUC__) || defined(__clang__)
+#define GODOTSHARP_HOST_API __attribute__((visibility("default")))
+#else
+#define GODOTSHARP_HOST_API
 #endif
 
 #ifndef TOOLS_ENABLED
@@ -64,6 +73,7 @@
 #endif
 
 GDMono *GDMono::singleton = nullptr;
+bool GDMono::host_driven_runtime_enabled = false;
 
 namespace {
 hostfxr_initialize_for_dotnet_command_line_fn hostfxr_initialize_for_dotnet_command_line = nullptr;
@@ -611,6 +621,11 @@ godot_plugins_initialize_fn initialize_coreclr_and_godot_plugins(bool &r_runtime
 } // namespace
 
 bool GDMono::should_initialize() {
+	if (host_driven_runtime_enabled) {
+		print_verbose(".NET: Host-driven runtime mode enabled; skipping engine-owned CLR initialization.");
+		return false;
+	}
+
 #ifdef TOOLS_ENABLED
 	// The editor always needs to initialize the .NET module for now.
 	return true;
@@ -716,6 +731,130 @@ void GDMono::initialize() {
 
 	initialized = true;
 }
+
+void GDMono::set_host_driven_runtime_enabled(bool p_enabled) {
+	host_driven_runtime_enabled = p_enabled;
+}
+
+bool GDMono::is_host_driven_runtime_enabled() {
+	return host_driven_runtime_enabled;
+}
+
+Error GDMono::initialize_host_driven(const GDMonoCache::ManagedCallbacks &p_managed_callbacks) {
+	ERR_FAIL_COND_V_MSG(initialized, ERR_ALREADY_IN_USE, ".NET: GodotSharp is already initialized.");
+
+	_init_godot_api_hashes();
+
+	GDMonoCache::update_godot_api_cache(p_managed_callbacks);
+
+	runtime_initialized = true;
+	initialized = true;
+
+	print_verbose(".NET: GodotSharp initialized by host-driven single-CLR mode.");
+
+	if (!_on_core_api_assembly_loaded()) {
+		return ERR_CANT_CREATE;
+	}
+
+	return OK;
+}
+
+extern "C" {
+
+enum GodotSharpHostInteropError {
+	GODOTSHARP_HOST_INTEROP_OK = 0,
+	GODOTSHARP_HOST_INTEROP_INVALID_ARGUMENT = 1,
+	GODOTSHARP_HOST_INTEROP_VERSION_MISMATCH = 2,
+	GODOTSHARP_HOST_INTEROP_NOT_READY = 3,
+	GODOTSHARP_HOST_INTEROP_ALREADY_INITIALIZED = 4,
+	GODOTSHARP_HOST_INTEROP_INITIALIZATION_FAILED = 5,
+};
+
+struct GodotSharpHostBindings {
+	uint32_t version;
+	uint32_t size;
+	const void *unmanaged_callbacks;
+	int32_t unmanaged_callbacks_size;
+	int32_t managed_callbacks_size;
+	const char *godot_version;
+	const char *godot_version_hash;
+	uint64_t api_core_hash;
+	uint64_t api_editor_hash;
+};
+
+static constexpr uint32_t GODOTSHARP_HOST_BINDINGS_VERSION = 1;
+
+GODOTSHARP_HOST_API int32_t godotsharp_host_set_single_clr_enabled(int32_t p_enabled) {
+	GDMono::set_host_driven_runtime_enabled(p_enabled != 0);
+	return GODOTSHARP_HOST_INTEROP_OK;
+}
+
+GODOTSHARP_HOST_API int32_t godotsharp_host_is_single_clr_enabled() {
+	return GDMono::is_host_driven_runtime_enabled() ? 1 : 0;
+}
+
+GODOTSHARP_HOST_API int32_t godotsharp_host_get_bindings(uint32_t p_version, GodotSharpHostBindings *r_bindings) {
+	ERR_FAIL_NULL_V(r_bindings, GODOTSHARP_HOST_INTEROP_INVALID_ARGUMENT);
+
+	if (p_version != GODOTSHARP_HOST_BINDINGS_VERSION) {
+		return GODOTSHARP_HOST_INTEROP_VERSION_MISMATCH;
+	}
+
+	int32_t interop_funcs_size = 0;
+	const void **interop_funcs = godotsharp::get_runtime_interop_funcs(interop_funcs_size);
+	ERR_FAIL_NULL_V(interop_funcs, GODOTSHARP_HOST_INTEROP_NOT_READY);
+
+	r_bindings->version = GODOTSHARP_HOST_BINDINGS_VERSION;
+	r_bindings->size = sizeof(GodotSharpHostBindings);
+	r_bindings->unmanaged_callbacks = interop_funcs;
+	r_bindings->unmanaged_callbacks_size = interop_funcs_size;
+	r_bindings->managed_callbacks_size = sizeof(GDMonoCache::ManagedCallbacks);
+	r_bindings->godot_version = GODOT_VERSION_FULL_NAME;
+	r_bindings->godot_version_hash = GODOT_VERSION_HASH;
+#ifdef DEBUG_ENABLED
+	r_bindings->api_core_hash = GDMono::get_singleton() ? GDMono::get_singleton()->get_api_core_hash() : 0;
+#ifdef TOOLS_ENABLED
+	r_bindings->api_editor_hash = GDMono::get_singleton() ? GDMono::get_singleton()->get_api_editor_hash() : 0;
+#else
+	r_bindings->api_editor_hash = 0;
+#endif
+#else
+	r_bindings->api_core_hash = 0;
+	r_bindings->api_editor_hash = 0;
+#endif
+
+	return GODOTSHARP_HOST_INTEROP_OK;
+}
+
+GODOTSHARP_HOST_API int32_t godotsharp_host_initialize(const void *p_managed_callbacks, int32_t p_managed_callbacks_size) {
+	ERR_FAIL_NULL_V(p_managed_callbacks, GODOTSHARP_HOST_INTEROP_INVALID_ARGUMENT);
+
+	if (p_managed_callbacks_size != sizeof(GDMonoCache::ManagedCallbacks)) {
+		return GODOTSHARP_HOST_INTEROP_VERSION_MISMATCH;
+	}
+
+	GDMono *gdmono = GDMono::get_singleton();
+	if (gdmono == nullptr) {
+		return GODOTSHARP_HOST_INTEROP_NOT_READY;
+	}
+
+	if (!GDMono::is_host_driven_runtime_enabled()) {
+		return GODOTSHARP_HOST_INTEROP_NOT_READY;
+	}
+
+	if (gdmono->is_initialized()) {
+		return GODOTSHARP_HOST_INTEROP_ALREADY_INITIALIZED;
+	}
+
+	Error err = gdmono->initialize_host_driven(*reinterpret_cast<const GDMonoCache::ManagedCallbacks *>(p_managed_callbacks));
+	if (err != OK) {
+		return GODOTSHARP_HOST_INTEROP_INITIALIZATION_FAILED;
+	}
+
+	return GODOTSHARP_HOST_INTEROP_OK;
+}
+
+} // extern "C"
 
 #ifdef TOOLS_ENABLED
 void GDMono::_try_load_project_assembly() {
